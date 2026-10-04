@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,44 +6,99 @@ import {
   FlatList,
   RefreshControl,
   Pressable,
+  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Header } from '@/components/common/Header';
-import { BalanceDisplay, TransactionRow } from '@/components/dashboard';
+import { BalanceCarousel, TransactionRow } from '@/components/dashboard';
+import { BalanceListModal } from '@/screens/BalanceListModal';
 import { Skeleton } from '@/components/common/Skeleton';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useHaptics } from '@/hooks/useHaptics';
-import { Transaction } from '@/types';
+import { BalanceRepository } from '@/services/db';
+import { Balance, Transaction } from '@/types';
 
 interface HomeScreenProps {
   onOpenAdd?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
-  const { transactions, balanceSummary, isLoading, refresh } = useTransactions();
+  const [balances, setBalances] = useState<Balance[]>(() => {
+    try {
+      return BalanceRepository.getAll();
+    } catch {
+      return [];
+    }
+  });
+
+  const [activeBalanceIndex, setActiveBalanceIndex] = useState<number>(0);
+  const [isBalanceModalVisible, setIsBalanceModalVisible] = useState<boolean>(false);
+  const [isPulling, setIsPulling] = useState<boolean>(false);
+
+  const activeBalance = balances[activeBalanceIndex] || balances[0] || {
+    id: 'main',
+    name: 'Cuenta Principal',
+    amount: 0,
+    currency: '$',
+    accentColor: '#FFFFFF',
+    type: 'main' as const,
+    createdAt: Date.now(),
+  };
+
+  const {
+    transactions,
+    balanceSummary,
+    isLoading,
+    refresh: refreshTransactions,
+  } = useTransactions(activeBalance.id);
+
   const { triggerKeypadTap, triggerSelection } = useHaptics();
-  const [isPulling, setIsPulling] = useState(false);
   const insets = useSafeAreaInsets();
+
+  const refreshBalances = useCallback(() => {
+    try {
+      const allBalances = BalanceRepository.getAll();
+      setBalances(allBalances);
+    } catch (e) {
+      console.error('Error refreshing balances:', e);
+    }
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setIsPulling(true);
+    triggerSelection();
+    refreshBalances();
+    refreshTransactions();
+    setTimeout(() => {
+      setIsPulling(false);
+    }, 400);
+  }, [refreshBalances, refreshTransactions, triggerSelection]);
 
   const handleOpenAdd = () => {
     triggerKeypadTap();
     onOpenAdd?.();
   };
 
-  const handleRefresh = () => {
-    setIsPulling(true);
-    triggerSelection();
-    refresh();
-    setTimeout(() => {
-      setIsPulling(false);
-    }, 400);
+  const handleSelectBalance = (balanceId: string) => {
+    const targetIndex = balances.findIndex((b) => b.id === balanceId);
+    if (targetIndex >= 0) {
+      setActiveBalanceIndex(targetIndex);
+    }
   };
 
   const renderHeader = () => (
     <View style={styles.listHeader}>
-      <BalanceDisplay summary={balanceSummary} isLoading={isLoading} />
+      <BalanceCarousel
+        balances={balances}
+        activeBalanceIndex={activeBalanceIndex}
+        onBalanceChange={setActiveBalanceIndex}
+        onOpenBalanceList={() => setIsBalanceModalVisible(true)}
+        safeToSpendDaily={balanceSummary.safeToSpendDaily}
+      />
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Transacciones</Text>
+        <Text style={styles.sectionTitle}>
+          {activeBalance.name} • Movimientos
+        </Text>
         <Pressable
           onPress={handleOpenAdd}
           style={({ pressed }) => [styles.addButton, pressed && styles.pressed]}
@@ -72,8 +127,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
 
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Sin movimientos recientes</Text>
-        <Text style={styles.emptySubtext}>Desliza hacia abajo o toca + para registrar</Text>
+        <Text style={styles.emptyText}>Sin movimientos en este saldo</Text>
+        <Text style={styles.emptySubtext}>Toca + para registrar una transacción en {activeBalance.name}</Text>
       </View>
     );
   };
@@ -87,6 +142,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
         rightActionLabel="+"
         onRightAction={handleOpenAdd}
       />
+
       <FlatList
         data={transactions}
         keyExtractor={(item) => item.id}
@@ -104,6 +160,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
           />
         }
       />
+
+      {/* Modal formSheet de lista de saldos */}
+      <Modal
+        visible={isBalanceModalVisible}
+        animationType="slide"
+        presentationStyle="formSheet"
+        onRequestClose={() => setIsBalanceModalVisible(false)}
+      >
+        <BalanceListModal
+          balances={balances}
+          selectedBalanceId={activeBalance.id}
+          onSelectBalance={handleSelectBalance}
+          onClose={() => setIsBalanceModalVisible(false)}
+        />
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -117,7 +188,7 @@ const styles = StyleSheet.create({
     paddingBottom: 110,
   },
   listHeader: {
-    marginBottom: 8,
+    marginBottom: 4,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -135,6 +206,8 @@ const styles = StyleSheet.create({
     color: '#8E8E93',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    flex: 1,
+    marginRight: 8,
   },
   addButton: {
     paddingVertical: 4,
@@ -163,5 +236,6 @@ const styles = StyleSheet.create({
   emptySubtext: {
     fontSize: 13,
     color: '#8E8E93',
+    textAlign: 'center',
   },
 });

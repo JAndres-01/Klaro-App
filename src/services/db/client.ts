@@ -41,14 +41,36 @@ function initDatabase(db: SQLite.SQLiteDatabase): void {
     // Ignorar si ya existe
   }
 
-  // Sembrar cuenta principal por defecto si no existe
+  // Sembrar cuentas iniciales si la tabla de balances está vacía
   try {
-    const mainBalance = db.getFirstSync<{ id: string }>(`SELECT id FROM balances WHERE id = 'main';`);
-    if (!mainBalance) {
+    const balanceCount = db.getFirstSync<{ count: number }>(`SELECT COUNT(*) as count FROM balances;`);
+    if (!balanceCount || balanceCount.count === 0) {
+      const now = Date.now();
       db.runSync(
         `INSERT INTO balances (id, name, amount, currency, accentColor, type, createdAt)
-         VALUES ('main', 'Principal', 0, '$', '#FFFFFF', 'main', ?)`,
-        [Date.now()]
+         VALUES ('main', 'Cuenta Principal', 4850.00, '$', '#FFFFFF', 'main', ?)`,
+        [now]
+      );
+      db.runSync(
+        `INSERT INTO balances (id, name, amount, currency, accentColor, type, targetAmount, streakCount, createdAt)
+         VALUES ('goal_emergency', 'Fondo de Emergencia', 12500.00, '$', '#30D158', 'goal', 20000.00, 4, ?)`,
+        [now]
+      );
+      db.runSync(
+        `INSERT INTO balances (id, name, amount, currency, accentColor, type, targetAmount, streakCount, createdAt)
+         VALUES ('goal_travel', 'Ahorro Viaje', 950.00, '$', '#0A84FF', 'goal', 3000.00, 2, ?)`,
+        [now]
+      );
+
+      // Sembrar transacciones de ejemplo asociadas a cada saldo
+      db.runSync(
+        `INSERT INTO transactions (id, amount, type, category, note, date, balanceId, createdAt)
+         VALUES 
+          ('tx_1', 3200.00, 'income', 'Nómina', 'Salario mensual', '${new Date().toISOString()}', 'main', ${now}),
+          ('tx_2', 145.50, 'expense', 'Supermercado', 'Compras de la semana', '${new Date().toISOString()}', 'main', ${now - 3600000}),
+          ('tx_3', 25.00, 'expense', 'Café', 'Espresso y snack', '${new Date().toISOString()}', 'main', ${now - 7200000}),
+          ('tx_4', 1500.00, 'income', 'Aporte Ahorro', 'Transferencia automática', '${new Date().toISOString()}', 'goal_emergency', ${now}),
+          ('tx_5', 300.00, 'income', 'Depósito Viaje', 'Apartado quincenal', '${new Date().toISOString()}', 'goal_travel', ${now});`
       );
     }
   } catch {

@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Klaro",
+    "slug": "klaro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.klaro.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      },
+      "package": "com.klaro.app"
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-local-authentication",
+      "expo-notifications"
+    ]
+  }
+}

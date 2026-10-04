@@ -7,10 +7,11 @@ import {
   RefreshControl,
   Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeScreenProps } from '@/navigation/types';
 import { Header } from '@/components/common/Header';
-import { BalanceDisplay, TransactionRow, QuickActions } from '@/components/dashboard';
+import { BottomNavBar, NavTab } from '@/components/common/BottomNavBar';
+import { BalanceDisplay, TransactionRow } from '@/components/dashboard';
 import { Skeleton } from '@/components/common/Skeleton';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -20,6 +21,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
   const { transactions, balanceSummary, isLoading, refresh } = useTransactions();
   const { triggerKeypadTap, triggerSelection } = useHaptics();
   const [isPulling, setIsPulling] = useState(false);
+  const insets = useSafeAreaInsets();
 
   const handleOpenAdd = () => {
     triggerKeypadTap();
@@ -30,20 +32,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setIsPulling(true);
     triggerSelection();
     refresh();
-    // Gesto de pull down activa navegación a agregar si es intencional o refresca
     setTimeout(() => {
       setIsPulling(false);
     }, 400);
   };
 
+  const handleSelectTab = (tab: NavTab) => {
+    if (tab === 'subscriptions') {
+      navigation.navigate('Subscriptions');
+    } else if (tab === 'goals') {
+      navigation.navigate('Goals');
+    } else if (tab === 'metrics') {
+      navigation.navigate('Metrics');
+    }
+  };
+
   const renderHeader = () => (
     <View style={styles.listHeader}>
       <BalanceDisplay summary={balanceSummary} isLoading={isLoading} />
-      <QuickActions
-        onNavigateSubscriptions={() => navigation.navigate('Subscriptions')}
-        onNavigateGoals={() => navigation.navigate('Goals')}
-        onNavigateMetrics={() => navigation.navigate('Metrics')}
-      />
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Transacciones</Text>
         <Pressable
@@ -80,6 +86,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     );
   };
 
+  const bottomPadding = insets.bottom + 90;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <Header
@@ -93,7 +101,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
         renderItem={renderItem}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: bottomPadding }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -103,6 +111,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             colors={['#FFFFFF']}
           />
         }
+      />
+      <BottomNavBar
+        activeTab="home"
+        onSelectTab={handleSelectTab}
       />
     </SafeAreaView>
   );
@@ -114,7 +126,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   listContent: {
-    paddingBottom: 40,
+    paddingBottom: 110,
   },
   listHeader: {
     marginBottom: 8,
@@ -124,17 +136,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingTop: 16,
+    paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#1C1C1E',
   },
   sectionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#8E8E93',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   addButton: {
     paddingVertical: 4,

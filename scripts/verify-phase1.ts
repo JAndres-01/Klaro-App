@@ -4,6 +4,7 @@
  */
 import {
   Transaction,
+  Balance,
   Subscription,
   Goal,
   BalanceSummary,
@@ -11,6 +12,7 @@ import {
 } from '../src/types';
 import {
   CREATE_TRANSACTIONS_TABLE,
+  CREATE_BALANCES_TABLE,
   CREATE_SUBSCRIPTIONS_TABLE,
   CREATE_GOALS_TABLE,
   CREATE_INDEXES,
@@ -19,13 +21,13 @@ import { formatCurrency } from '../src/utils/currency';
 import { formatDateLabel, getDaysRemainingInMonth } from '../src/utils/dates';
 
 function runVerification() {
-  console.log('--- Verificando Fase 1: Capa de Datos y Modelos ---');
+  console.log('--- Verificando Capa de Datos y Modelos Refactorizados ---');
 
   // 1. Validar schemas SQL
   if (
     !CREATE_TRANSACTIONS_TABLE.includes('CREATE TABLE IF NOT EXISTS transactions') ||
+    !CREATE_BALANCES_TABLE.includes('CREATE TABLE IF NOT EXISTS balances') ||
     !CREATE_SUBSCRIPTIONS_TABLE.includes('CREATE TABLE IF NOT EXISTS subscriptions') ||
-    !CREATE_GOALS_TABLE.includes('CREATE TABLE IF NOT EXISTS goals') ||
     !CREATE_INDEXES.includes('CREATE INDEX')
   ) {
     throw new Error('Error en la definición del schema SQL');
@@ -33,6 +35,16 @@ function runVerification() {
   console.log('✓ SQL Schemas e Índices validados');
 
   // 2. Validar tipos e interfaces
+  const testBalance: Balance = {
+    id: 'main',
+    name: 'Cuenta Principal',
+    amount: 15420.0,
+    currency: '$',
+    accentColor: '#FFFFFF',
+    type: 'main',
+    createdAt: Date.now(),
+  };
+
   const testTx: Transaction = {
     id: 'tx_1',
     amount: 1500.5,
@@ -40,6 +52,7 @@ function runVerification() {
     category: 'Alimentación',
     note: 'Supermercado semanal',
     date: new Date().toISOString(),
+    balanceId: 'main',
     createdAt: Date.now(),
   };
 
@@ -58,16 +71,19 @@ function runVerification() {
 
   const testGoal: Goal = {
     id: 'goal_1',
-    title: 'Fondo de Emergencia',
+    name: 'Fondo de Emergencia',
+    amount: 12500,
+    currency: '$',
+    accentColor: '#30D158',
+    type: 'goal',
     targetAmount: 50000,
-    currentAmount: 12500,
     targetDate: '2026-12-31',
     streakCount: 5,
     isCompleted: false,
     createdAt: Date.now(),
   };
 
-  console.log('✓ Modelos de Transaction, Subscription y Goal tipados correctamente');
+  console.log('✓ Modelos de Transaction (con balanceId) y Balance/Goal validados correctamente');
 
   // 3. Validar utilidades
   const formatted = formatCurrency(testTx.amount);
@@ -85,7 +101,7 @@ function runVerification() {
   const daysLeft = getDaysRemainingInMonth();
   console.log(`✓ Días restantes en el mes calculados: ${daysLeft}`);
 
-  console.log('--- Todas las validaciones de Fase 1 fueron exitosas ---');
+  console.log('--- Todas las validaciones de modelos fueron exitosas ---');
 }
 
 runVerification();

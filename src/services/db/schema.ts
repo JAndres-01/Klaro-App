@@ -6,6 +6,23 @@ export const CREATE_TRANSACTIONS_TABLE = `
     category TEXT NOT NULL,
     note TEXT,
     date TEXT NOT NULL,
+    balanceId TEXT NOT NULL DEFAULT 'main',
+    createdAt INTEGER NOT NULL
+  );
+`;
+
+export const CREATE_BALANCES_TABLE = `
+  CREATE TABLE IF NOT EXISTS balances (
+    id TEXT PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    amount REAL NOT NULL DEFAULT 0,
+    currency TEXT NOT NULL DEFAULT '$',
+    accentColor TEXT NOT NULL DEFAULT '#FFFFFF',
+    type TEXT NOT NULL CHECK(type IN ('main', 'goal')),
+    targetAmount REAL,
+    targetDate TEXT,
+    streakCount INTEGER NOT NULL DEFAULT 0,
+    isCompleted INTEGER NOT NULL DEFAULT 0,
     createdAt INTEGER NOT NULL
   );
 `;
@@ -41,6 +58,8 @@ export const CREATE_GOALS_TABLE = `
 export const CREATE_INDEXES = `
   CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
+  CREATE INDEX IF NOT EXISTS idx_transactions_balanceId ON transactions(balanceId);
+  CREATE INDEX IF NOT EXISTS idx_balances_type ON balances(type);
   CREATE INDEX IF NOT EXISTS idx_subscriptions_active ON subscriptions(isActive);
   CREATE INDEX IF NOT EXISTS idx_goals_completed ON goals(isCompleted);
 `;

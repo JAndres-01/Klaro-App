@@ -1,13 +1,177 @@
 import { getDatabase } from './client';
 import {
   Transaction,
+  Balance,
   Subscription,
   Goal,
   BalanceSummary,
   SubscriptionLeak,
   TransactionType,
+  BalanceType,
   BillingCycle,
 } from '@/types';
+
+// ==========================================
+// BALANCES REPOSITORY (CUENTAS / SALDOS / METAS)
+// ==========================================
+
+interface DBBalanceRow {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  accentColor: string;
+  type: string;
+  targetAmount: number | null;
+  targetDate: string | null;
+  streakCount: number;
+  isCompleted: number;
+  createdAt: number;
+}
+
+function mapBalance(row: DBBalanceRow): Balance {
+  return {
+    id: row.id,
+    name: row.name,
+    amount: row.amount,
+    currency: row.currency,
+    accentColor: row.accentColor,
+    type: row.type as BalanceType,
+    targetAmount: row.targetAmount,
+    targetDate: row.targetDate,
+    streakCount: row.streakCount,
+    isCompleted: Boolean(row.isCompleted),
+    createdAt: row.createdAt,
+  };
+}
+
+export const BalanceRepository = {
+  create(balance: Omit<Balance, 'createdAt'> & { createdAt?: number }): Balance {
+    const db = getDatabase();
+    const createdAt = balance.createdAt ?? Date.now();
+    db.runSync(
+      `INSERT INTO balances (id, name, amount, currency, accentColor, type, targetAmount, targetDate, streakCount, isCompleted, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        balance.id,
+        balance.name,
+        balance.amount,
+        balance.currency || '$',
+        balance.accentColor || '#FFFFFF',
+        balance.type,
+        balance.targetAmount ?? null,
+        balance.targetDate ?? null,
+        balance.streakCount ?? 0,
+        balance.isCompleted ? 1 : 0,
+        createdAt,
+      ]
+    );
+    return {
+      ...balance,
+      currency: balance.currency || '$',
+      accentColor: balance.accentColor || '#FFFFFF',
+      createdAt,
+    };
+  },
+
+  getAll(): Balance[] {
+    const db = getDatabase();
+    const rows = db.getAllSync<DBBalanceRow>(
+      `SELECT * FROM balances ORDER BY CASE WHEN type = 'main' THEN 0 ELSE 1 END, createdAt ASC`
+    );
+    return rows.map(mapBalance);
+  },
+
+  getById(id: string): Balance | null {
+    const db = getDatabase();
+    const row = db.getFirstSync<DBBalanceRow>(
+      `SELECT * FROM balances WHERE id = ?`,
+      [id]
+    );
+    return row ? mapBalance(row) : null;
+  },
+
+  getMain(): Balance {
+    const db = getDatabase();
+    const row = db.getFirstSync<DBBalanceRow>(
+      `SELECT * FROM balances WHERE type = 'main' LIMIT 1`
+    );
+    if (row) return mapBalance(row);
+
+    // Si no existe, crear la cuenta principal por defecto
+    return BalanceRepository.create({
+      id: 'main',
+      name: 'Principal',
+      amount: 0,
+      currency: '$',
+      accentColor: '#FFFFFF',
+      type: 'main',
+    });
+  },
+
+  getGoals(): Balance[] {
+    const db = getDatabase();
+    const rows = db.getAllSync<DBBalanceRow>(
+      `SELECT * FROM balances WHERE type = 'goal' ORDER BY isCompleted ASC, createdAt DESC`
+    );
+    return rows.map(mapBalance);
+  },
+
+  update(id: string, updates: Partial<Balance>): Balance | null {
+    const db = getDatabase();
+    const current = BalanceRepository.getById(id);
+    if (!current) return null;
+
+    const updated: Balance = {
+      ...current,
+      ...updates,
+    };
+
+    db.runSync(
+      `UPDATE balances SET 
+        name = ?, amount = ?, currency = ?, accentColor = ?, 
+        targetAmount = ?, targetDate = ?, streakCount = ?, isCompleted = ?
+       WHERE id = ?`,
+      [
+        updated.name,
+        updated.amount,
+        updated.currency,
+        updated.accentColor,
+        updated.targetAmount ?? null,
+        updated.targetDate ?? null,
+        updated.streakCount ?? 0,
+        updated.isCompleted ? 1 : 0,
+        id,
+      ]
+    );
+
+    return updated;
+  },
+
+  addFunds(id: string, amount: number): Balance | null {
+    const current = BalanceRepository.getById(id);
+    if (!current) return null;
+
+    const newAmount = current.amount + amount;
+    const isCompleted =
+      current.targetAmount !== null && current.targetAmount !== undefined && newAmount >= current.targetAmount;
+    const newStreak = (current.streakCount ?? 0) + 1;
+
+    return BalanceRepository.update(id, {
+      amount: newAmount,
+      isCompleted,
+      streakCount: newStreak,
+    });
+  },
+
+  delete(id: string): void {
+    const db = getDatabase();
+    // No permitir borrar el saldo principal
+    if (id === 'main') return;
+    db.runSync(`DELETE FROM balances WHERE id = ?`, [id]);
+    db.runSync(`DELETE FROM transactions WHERE balanceId = ?`, [id]);
+  },
+};
 
 // ==========================================
 // TRANSACTIONS REPOSITORY
@@ -20,6 +184,7 @@ interface DBTransactionRow {
   category: string;
   note: string | null;
   date: string;
+  balanceId: string;
   createdAt: number;
 }
 
@@ -31,17 +196,20 @@ function mapTransaction(row: DBTransactionRow): Transaction {
     category: row.category,
     note: row.note ?? undefined,
     date: row.date,
+    balanceId: row.balanceId || 'main',
     createdAt: row.createdAt,
   };
 }
 
 export const TransactionRepository = {
-  create(tx: Omit<Transaction, 'createdAt'> & { createdAt?: number }): Transaction {
+  create(tx: Omit<Transaction, 'createdAt'> & { createdAt?: number; balanceId?: string }): Transaction {
     const db = getDatabase();
     const createdAt = tx.createdAt ?? Date.now();
+    const balanceId = tx.balanceId ?? 'main';
+
     db.runSync(
-      `INSERT INTO transactions (id, amount, type, category, note, date, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO transactions (id, amount, type, category, note, date, balanceId, createdAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         tx.id,
         tx.amount,
@@ -49,17 +217,41 @@ export const TransactionRepository = {
         tx.category,
         tx.note ?? null,
         tx.date,
+        balanceId,
         createdAt,
       ]
     );
+
+    // Actualizar el monto en la tabla balances asociada
+    try {
+      const balance = BalanceRepository.getById(balanceId);
+      if (balance) {
+        const delta = tx.type === 'income' ? tx.amount : -tx.amount;
+        BalanceRepository.update(balanceId, {
+          amount: balance.amount + delta,
+        });
+      }
+    } catch {
+      // Ignorar si falla la sincronización secundaria
+    }
+
     return {
       ...tx,
+      balanceId,
       createdAt,
     };
   },
 
-  getAll(limit: number = 50, offset: number = 0): Transaction[] {
+  getAll(limit: number = 50, offset: number = 0, balanceId?: string): Transaction[] {
     const db = getDatabase();
+    if (balanceId) {
+      const rows = db.getAllSync<DBTransactionRow>(
+        `SELECT * FROM transactions WHERE balanceId = ? ORDER BY date DESC, createdAt DESC LIMIT ? OFFSET ?`,
+        [balanceId, limit, offset]
+      );
+      return rows.map(mapTransaction);
+    }
+
     const rows = db.getAllSync<DBTransactionRow>(
       `SELECT * FROM transactions ORDER BY date DESC, createdAt DESC LIMIT ? OFFSET ?`,
       [limit, offset]
@@ -67,8 +259,16 @@ export const TransactionRepository = {
     return rows.map(mapTransaction);
   },
 
-  getByDateRange(startDate: string, endDate: string): Transaction[] {
+  getByDateRange(startDate: string, endDate: string, balanceId?: string): Transaction[] {
     const db = getDatabase();
+    if (balanceId) {
+      const rows = db.getAllSync<DBTransactionRow>(
+        `SELECT * FROM transactions WHERE date >= ? AND date <= ? AND balanceId = ? ORDER BY date DESC`,
+        [startDate, endDate, balanceId]
+      );
+      return rows.map(mapTransaction);
+    }
+
     const rows = db.getAllSync<DBTransactionRow>(
       `SELECT * FROM transactions WHERE date >= ? AND date <= ? ORDER BY date DESC`,
       [startDate, endDate]
@@ -78,20 +278,48 @@ export const TransactionRepository = {
 
   delete(id: string): void {
     const db = getDatabase();
+    const txRow = db.getFirstSync<DBTransactionRow>(
+      `SELECT * FROM transactions WHERE id = ?`,
+      [id]
+    );
+
+    if (txRow) {
+      // Revertir el impacto en balances
+      try {
+        const balance = BalanceRepository.getById(txRow.balanceId);
+        if (balance) {
+          const delta = txRow.type === 'income' ? -txRow.amount : txRow.amount;
+          BalanceRepository.update(txRow.balanceId, {
+            amount: balance.amount + delta,
+          });
+        }
+      } catch {
+        // Ignorar
+      }
+    }
+
     db.runSync(`DELETE FROM transactions WHERE id = ?`, [id]);
   },
 
-  getBalanceSummary(): BalanceSummary {
+  getBalanceSummary(balanceId?: string): BalanceSummary {
     const db = getDatabase();
+    let query = `
+      SELECT 
+        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
+      FROM transactions
+    `;
+    const params: unknown[] = [];
+
+    if (balanceId) {
+      query += ` WHERE balanceId = ?`;
+      params.push(balanceId);
+    }
+
     const result = db.getFirstSync<{
       income: number | null;
       expenses: number | null;
-    }>(
-      `SELECT 
-        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expenses
-       FROM transactions`
-    );
+    }>(query, params as (string | number)[]);
 
     const totalIncome = result?.income ?? 0;
     const totalExpenses = result?.expenses ?? 0;
@@ -223,93 +451,26 @@ export const SubscriptionRepository = {
 };
 
 // ==========================================
-// GOALS REPOSITORY
+// GOALS REPOSITORY (Mapeado sobre Balances)
 // ==========================================
-
-interface DBGoalRow {
-  id: string;
-  title: string;
-  targetAmount: number | null;
-  currentAmount: number;
-  targetDate: string | null;
-  streakCount: number;
-  isCompleted: number;
-  createdAt: number;
-}
-
-function mapGoal(row: DBGoalRow): Goal {
-  return {
-    id: row.id,
-    title: row.title,
-    targetAmount: row.targetAmount,
-    currentAmount: row.currentAmount,
-    targetDate: row.targetDate,
-    streakCount: row.streakCount,
-    isCompleted: Boolean(row.isCompleted),
-    createdAt: row.createdAt,
-  };
-}
 
 export const GoalRepository = {
   create(goal: Omit<Goal, 'createdAt'> & { createdAt?: number }): Goal {
-    const db = getDatabase();
-    const createdAt = goal.createdAt ?? Date.now();
-    db.runSync(
-      `INSERT INTO goals (id, title, targetAmount, currentAmount, targetDate, streakCount, isCompleted, createdAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        goal.id,
-        goal.title,
-        goal.targetAmount,
-        goal.currentAmount,
-        goal.targetDate,
-        goal.streakCount,
-        goal.isCompleted ? 1 : 0,
-        createdAt,
-      ]
-    );
-    return {
+    return BalanceRepository.create({
       ...goal,
-      createdAt,
-    };
+      type: 'goal',
+    });
   },
 
   getAll(): Goal[] {
-    const db = getDatabase();
-    const rows = db.getAllSync<DBGoalRow>(
-      `SELECT * FROM goals ORDER BY isCompleted ASC, createdAt DESC`
-    );
-    return rows.map(mapGoal);
+    return BalanceRepository.getGoals();
   },
 
   addFunds(id: string, amount: number): Goal | null {
-    const db = getDatabase();
-    const goalRow = db.getFirstSync<DBGoalRow>(
-      `SELECT * FROM goals WHERE id = ?`,
-      [id]
-    );
-    if (!goalRow) return null;
-
-    const newAmount = goalRow.currentAmount + amount;
-    const isCompleted =
-      goalRow.targetAmount !== null && newAmount >= goalRow.targetAmount ? 1 : 0;
-    const newStreak = goalRow.streakCount + 1;
-
-    db.runSync(
-      `UPDATE goals SET currentAmount = ?, isCompleted = ?, streakCount = ? WHERE id = ?`,
-      [newAmount, isCompleted, newStreak, id]
-    );
-
-    return {
-      ...mapGoal(goalRow),
-      currentAmount: newAmount,
-      isCompleted: Boolean(isCompleted),
-      streakCount: newStreak,
-    };
+    return BalanceRepository.addFunds(id, amount);
   },
 
   delete(id: string): void {
-    const db = getDatabase();
-    db.runSync(`DELETE FROM goals WHERE id = ?`, [id]);
+    BalanceRepository.delete(id);
   },
 };

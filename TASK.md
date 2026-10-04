@@ -21,13 +21,13 @@
 ---
 
 ## Fase 2: Navegación y Dashboard Monocromático
-- [ ] **Task 2.1**: Configurar `RootNavigator.tsx` con `@react-navigation/native-stack` con estilo minimalista negro (`backgroundColor: '#000000'`).
-- [ ] **Task 2.2**: Construir `HomeScreen.tsx` sin saturación de tarjetas:
+- [x] **Task 2.1**: Configurar `RootNavigator.tsx` con `@react-navigation/native-stack` con estilo minimalista negro (`backgroundColor: '#000000'`).
+- [x] **Task 2.2**: Construir `HomeScreen.tsx` sin saturación de tarjetas:
   - Saldo en tipografía grande blanca.
   - Indicador sutil de "Safe to Spend" diario.
   - Lista de transacciones recientes separada por líneas finas (`hairlineWidth`).
-- [ ] **Task 2.3**: Implementar gesto "Pull down to Add" para abrir el modal de captura rápida.
-- [ ] **Verificación Fase 2**: Correr en simulador iOS, validar navegación y fluidez de scroll.
+- [x] **Task 2.3**: Implementar gesto "Pull down to Add" para abrir el modal de captura rápida.
+- [x] **Verificación Fase 2**: Correr en simulador iOS, validar navegación y fluidez de scroll.
 
 ---
 

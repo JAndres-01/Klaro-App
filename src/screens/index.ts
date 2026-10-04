@@ -1,3 +1,4 @@
+export { MainScreen } from './MainScreen';
 export { HomeScreen } from './HomeScreen';
 export { AddTransactionModal } from './AddTransactionModal';
 export { MetricsScreen } from './MetricsScreen';

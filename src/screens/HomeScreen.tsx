@@ -8,16 +8,18 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HomeScreenProps } from '@/navigation/types';
 import { Header } from '@/components/common/Header';
-import { BottomNavBar, NavTab } from '@/components/common/BottomNavBar';
 import { BalanceDisplay, TransactionRow } from '@/components/dashboard';
 import { Skeleton } from '@/components/common/Skeleton';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useHaptics } from '@/hooks/useHaptics';
 import { Transaction } from '@/types';
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
+interface HomeScreenProps {
+  onOpenAdd?: () => void;
+}
+
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
   const { transactions, balanceSummary, isLoading, refresh } = useTransactions();
   const { triggerKeypadTap, triggerSelection } = useHaptics();
   const [isPulling, setIsPulling] = useState(false);
@@ -25,7 +27,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
 
   const handleOpenAdd = () => {
     triggerKeypadTap();
-    navigation.navigate('AddTransaction');
+    onOpenAdd?.();
   };
 
   const handleRefresh = () => {
@@ -35,16 +37,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
     setTimeout(() => {
       setIsPulling(false);
     }, 400);
-  };
-
-  const handleSelectTab = (tab: NavTab) => {
-    if (tab === 'subscriptions') {
-      navigation.navigate('Subscriptions');
-    } else if (tab === 'goals') {
-      navigation.navigate('Goals');
-    } else if (tab === 'metrics') {
-      navigation.navigate('Metrics');
-    }
   };
 
   const renderHeader = () => (
@@ -111,10 +103,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ navigation }) => {
             colors={['#FFFFFF']}
           />
         }
-      />
-      <BottomNavBar
-        activeTab="home"
-        onSelectTab={handleSelectTab}
       />
     </SafeAreaView>
   );

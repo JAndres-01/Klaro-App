@@ -1,16 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Transaction, BalanceSummary } from '@/types';
 import { TransactionRepository } from '@/services/db';
 
 export function useTransactions() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [balanceSummary, setBalanceSummary] = useState<BalanceSummary>({
-    currentBalance: 0,
-    totalIncome: 0,
-    totalExpenses: 0,
-    safeToSpendDaily: 0,
+  // Inicialización síncrona desde SQLite local para arranque instantáneo (<1ms) sin parpadeo de skeleton
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    try {
+      return TransactionRepository.getAll(100);
+    } catch {
+      return [];
+    }
   });
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  const [balanceSummary, setBalanceSummary] = useState<BalanceSummary>(() => {
+    try {
+      return TransactionRepository.getBalanceSummary();
+    } catch {
+      return {
+        currentBalance: 0,
+        totalIncome: 0,
+        totalExpenses: 0,
+        safeToSpendDaily: 0,
+      };
+    }
+  });
+
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const refresh = useCallback(() => {
     try {
@@ -24,10 +39,6 @@ export function useTransactions() {
       setIsLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
 
   const addTransaction = useCallback(
     (tx: Omit<Transaction, 'createdAt'> & { createdAt?: number }) => {

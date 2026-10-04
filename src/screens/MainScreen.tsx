@@ -17,25 +17,21 @@ export const MainScreen: React.FC<MainScreenProps> = ({ navigation }) => {
     navigation.navigate('AddTransaction');
   };
 
-  const renderActiveScreen = () => {
-    switch (activeTab) {
-      case 'home':
-        return <HomeScreen onOpenAdd={handleOpenAdd} />;
-      case 'subscriptions':
-        return <SubscriptionsScreen />;
-      case 'goals':
-        return <GoalsScreen />;
-      case 'metrics':
-        return <MetricsScreen />;
-      default:
-        return <HomeScreen onOpenAdd={handleOpenAdd} />;
-    }
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.screenContainer}>
-        {renderActiveScreen()}
+        <View style={[styles.tabContent, { display: activeTab === 'home' ? 'flex' : 'none' }]}>
+          <HomeScreen onOpenAdd={handleOpenAdd} />
+        </View>
+        <View style={[styles.tabContent, { display: activeTab === 'subscriptions' ? 'flex' : 'none' }]}>
+          <SubscriptionsScreen />
+        </View>
+        <View style={[styles.tabContent, { display: activeTab === 'goals' ? 'flex' : 'none' }]}>
+          <GoalsScreen />
+        </View>
+        <View style={[styles.tabContent, { display: activeTab === 'metrics' ? 'flex' : 'none' }]}>
+          <MetricsScreen />
+        </View>
       </View>
       <BottomNavBar
         activeTab={activeTab}
@@ -51,6 +47,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   screenContainer: {
+    flex: 1,
+  },
+  tabContent: {
     flex: 1,
   },
 });

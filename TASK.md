@@ -37,10 +37,10 @@
 
 ## Fase 3: Teclado Háptico y Registro Rápido
 - [x] **Task 3.1**: Crear `NumberPad.tsx` con respuesta háptica instantánea (`expo-haptics`) en cada dígito.
-- [ ] **Task 3.2**: Construir `AddTransactionModal.tsx` con selector de tipo (Gasto / Ingreso) asignado por defecto al saldo activo.
-- [ ] **Task 3.3**: Implementar gesto "Pull down to Quick Add" en `HomeScreen.tsx`.
-- [ ] **Task 3.4**: Añadir selector de redondeo opcional para derivar el sobrante a un saldo tipo meta.
-- [ ] **Verificación Fase 3**: Registrar un gasto en < 3 segundos desde la apertura y comprobar hápticos.
+- [x] **Task 3.2**: Construir `AddTransactionModal.tsx` con selector de tipo (Gasto / Ingreso) asignado por defecto al saldo activo.
+- [x] **Task 3.3**: Implementar gesto "Pull down to Quick Add" en `HomeScreen.tsx`.
+- [x] **Task 3.4**: Añadir selector de redondeo opcional para derivar el sobrante a un saldo tipo meta.
+- [x] **Verificación Fase 3**: Registrar un gasto en < 3 segundos desde la apertura y comprobar hápticos.
 
 ---
 

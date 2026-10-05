@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Header } from '@/components/common/Header';
 import { BalanceCarousel, TransactionRow } from '@/components/dashboard';
 import { BalanceListModal } from '@/screens/BalanceListModal';
@@ -19,7 +20,7 @@ import { BalanceRepository } from '@/services/db';
 import { Balance, Transaction } from '@/types';
 
 interface HomeScreenProps {
-  onOpenAdd?: () => void;
+  onOpenAdd?: (balanceId?: string) => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
@@ -64,6 +65,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      refreshBalances();
+      refreshTransactions();
+    }, [refreshBalances, refreshTransactions])
+  );
+
   const handleRefresh = useCallback(() => {
     setIsPulling(true);
     triggerSelection();
@@ -71,12 +79,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onOpenAdd }) => {
     refreshTransactions();
     setTimeout(() => {
       setIsPulling(false);
-    }, 400);
-  }, [refreshBalances, refreshTransactions, triggerSelection]);
+      onOpenAdd?.(activeBalance.id);
+    }, 200);
+  }, [activeBalance.id, onOpenAdd, refreshBalances, refreshTransactions, triggerSelection]);
 
   const handleOpenAdd = () => {
     triggerKeypadTap();
-    onOpenAdd?.();
+    onOpenAdd?.(activeBalance.id);
   };
 
   const handleSelectBalance = (balanceId: string) => {

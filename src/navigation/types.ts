@@ -2,7 +2,7 @@ import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-naviga
 
 export type RootStackParamList = {
   Main: undefined;
-  AddTransaction: { initialType?: 'expense' | 'income' } | undefined;
+  AddTransaction: { initialType?: 'expense' | 'income'; balanceId?: string } | undefined;
 };
 
 export type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;

@@ -13,8 +13,8 @@ type MainScreenProps = NativeStackScreenProps<RootStackParamList, 'Main'>;
 export const MainScreen: React.FC<MainScreenProps> = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState<NavTab>('home');
 
-  const handleOpenAdd = () => {
-    navigation.navigate('AddTransaction');
+  const handleOpenAdd = (balanceId?: string) => {
+    navigation.navigate('AddTransaction', { balanceId });
   };
 
   return (
